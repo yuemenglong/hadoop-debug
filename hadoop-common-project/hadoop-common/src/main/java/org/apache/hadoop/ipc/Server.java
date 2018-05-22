@@ -2323,6 +2323,7 @@ public abstract class Server {
             // exceptions that escape this method are fatal to the connection.
             // setupResponse will use the rpc status to determine if the connection
             // should be closed.
+            LOG.debug("[YML] Mark 01 " + Thread.currentThread().getId());
             int callId = -1;
             int retry = RpcConstants.INVALID_RETRY_COUNT;
             try {
@@ -2332,23 +2333,29 @@ public abstract class Server {
                 callId = header.getCallId();
                 retry = header.getRetryCount();
                 if (LOG.isDebugEnabled()) {
+                    LOG.debug("[YML] Mark 02 " + Thread.currentThread().getId());
                     LOG.debug(" got #" + callId);
                 }
                 checkRpcHeaders(header);
 
                 if (callId < 0) { // callIds typically used during connection setup
+                    LOG.debug("[YML] Mark 03 " + Thread.currentThread().getId());
                     processRpcOutOfBandRequest(header, buffer);
                 } else if (!connectionContextRead) {
+                    LOG.debug("[YML] Mark 04 " + Thread.currentThread().getId());
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "Connection context not established");
                 } else {
+                    LOG.debug("[YML] Mark 05 " + Thread.currentThread().getId());
                     processRpcRequest(header, buffer);
                 }
             } catch (RpcServerException rse) {
+                LOG.debug("[YML] Mark 06 " + Thread.currentThread().getId());
                 // inform client of error, but do not rethrow else non-fatal
                 // exceptions will close connection!
                 if (LOG.isDebugEnabled()) {
+                    LOG.debug("[YML] Mark 07 " + Thread.currentThread().getId());
                     LOG.debug(Thread.currentThread().getName() +
                             ": processOneRpc from client " + this +
                             " threw exception [" + rse + "]");
@@ -2360,7 +2367,9 @@ public abstract class Server {
                         rse.getRpcStatusProto(), rse.getRpcErrorCodeProto(), null,
                         t.getClass().getName(), t.getMessage());
                 sendResponse(call);
+                LOG.debug("[YML] Mark 08 " + Thread.currentThread().getId());
             }
+            LOG.debug("[YML] Mark 09 " + Thread.currentThread().getId());
         }
 
         /**
@@ -2409,7 +2418,9 @@ public abstract class Server {
                 InterruptedException {
             Class<? extends Writable> rpcRequestClass =
                     getRpcRequestWrapper(header.getRpcKind());
+            LOG.debug("[YML] Mark 10 " + Thread.currentThread().getId());
             if (rpcRequestClass == null) {
+                LOG.debug("[YML] Mark 11 " + Thread.currentThread().getId());
                 LOG.warn("Unknown rpc kind " + header.getRpcKind() +
                         " from client " + getHostAddress());
                 final String err = "Unknown rpc kind in rpc header" +
@@ -2421,8 +2432,10 @@ public abstract class Server {
             try { //Read the rpc request
                 rpcRequest = buffer.newInstance(rpcRequestClass, conf);
             } catch (RpcServerException rse) { // lets tests inject failures.
+                LOG.debug("[YML] Mark 12 " + Thread.currentThread().getId());
                 throw rse;
             } catch (Throwable t) { // includes runtime exception from newInstance
+                LOG.debug("[YML] Mark 13 " + Thread.currentThread().getId());
                 LOG.warn("Unable to read call parameters for client " +
                         getHostAddress() + "on connection protocol " +
                         this.protocolName + " for rpcKind " + header.getRpcKind(), t);
@@ -2432,8 +2445,11 @@ public abstract class Server {
             }
 
             TraceScope traceScope = null;
+            LOG.debug("[YML] Mark 14 " + Thread.currentThread().getId());
             if (header.hasTraceInfo()) {
+                LOG.debug("[YML] Mark 15 " + Thread.currentThread().getId());
                 if (tracer != null) {
+                    LOG.debug("[YML] Mark 16 " + Thread.currentThread().getId());
                     // If the incoming RPC included tracing info, always continue the
                     // trace
                     SpanId parentSpanId = new SpanId(
@@ -2448,6 +2464,7 @@ public abstract class Server {
 
             CallerContext callerContext = null;
             if (header.hasCallerContext()) {
+                LOG.debug("[YML] Mark 17 " + Thread.currentThread().getId());
                 callerContext =
                         new CallerContext.Builder(header.getCallerContext().getContext())
                                 .setSignature(header.getCallerContext().getSignature()
@@ -2465,9 +2482,12 @@ public abstract class Server {
 
             try {
                 internalQueueCall(call);
+                LOG.debug("[YML] Mark 18 " + Thread.currentThread().getId());
             } catch (RpcServerException rse) {
+                LOG.debug("[YML] Mark 19 " + Thread.currentThread().getId());
                 throw rse;
             } catch (IOException ioe) {
+                LOG.debug("[YML] Mark 20 " + Thread.currentThread().getId());
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.ERROR_RPC_SERVER, ioe);
             }
@@ -2490,9 +2510,12 @@ public abstract class Server {
                                                 RpcWritable.Buffer buffer) throws RpcServerException,
                 IOException, InterruptedException {
             final int callId = header.getCallId();
+            LOG.debug("[YML] Mark 21 " + Thread.currentThread().getId());
             if (callId == CONNECTION_CONTEXT_CALL_ID) {
+                LOG.debug("[YML] Mark 22 " + Thread.currentThread().getId());
                 // SASL must be established prior to connection context
                 if (authProtocol == AuthProtocol.SASL && !saslContextEstablished) {
+                    LOG.debug("[YML] Mark 23 " + Thread.currentThread().getId());
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "Connection header sent during SASL negotiation");
@@ -2500,16 +2523,21 @@ public abstract class Server {
                 // read and authorize the user
                 processConnectionContext(buffer);
             } else if (callId == AuthProtocol.SASL.callId) {
+                LOG.debug("[YML] Mark 24 " + Thread.currentThread().getId());
                 // if client was switched to simple, ignore first SASL message
                 if (authProtocol != AuthProtocol.SASL) {
+                    LOG.debug("[YML] Mark 25 " + Thread.currentThread().getId());
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "SASL protocol not requested by client");
                 }
+                LOG.debug("[YML] Mark 26 " + Thread.currentThread().getId());
                 saslReadAndProcess(buffer);
             } else if (callId == PING_CALL_ID) {
+                LOG.debug("[YML] Mark 27 " + Thread.currentThread().getId());
                 LOG.debug("Received ping message");
             } else {
+                LOG.debug("[YML] Mark 28 " + Thread.currentThread().getId());
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                         "Unknown out of band call #" + callId);
