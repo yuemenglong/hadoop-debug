@@ -125,7 +125,8 @@ import org.codehaus.jackson.map.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** An abstract IPC service.  IPC calls take a single {@link Writable} as a
+/**
+ * An abstract IPC service.  IPC calls take a single {@link Writable} as a
  * parameter, and return a {@link Writable} as their value.  A service runs on
  * a port and is defined by a parameter class and a value class.
  *
@@ -169,6 +170,7 @@ public abstract class Server {
         /**
          * Add exception classes for which server won't log stack traces.
          * Optimized for infrequent invocation.
+         *
          * @param exceptionClass exception classes
          */
         void addTerseLoggingExceptions(Class<?>... exceptionClass) {
@@ -179,6 +181,7 @@ public abstract class Server {
         /**
          * Add exception classes which server won't log at all.
          * Optimized for infrequent invocation.
+         *
          * @param exceptionClass exception classes
          */
         void addSuppressedLoggingExceptions(Class<?>... exceptionClass) {
@@ -198,6 +201,7 @@ public abstract class Server {
         /**
          * Return a new set containing all the exceptions in exceptionsSet
          * and exceptionClass.
+         *
          * @return
          */
         private static Set<String> addExceptions(
@@ -254,12 +258,13 @@ public abstract class Server {
 
     /**
      * Register a RPC kind and the class to deserialize the rpc request.
-     *
+     * <p>
      * Called by static initializers of rpcKind Engines
+     *
      * @param rpcKind
      * @param rpcRequestWrapperClass - this class is used to deserialze the
-     *  the rpc request.
-     *  @param rpcInvoker - use to process the calls on SS.
+     *                               the rpc request.
+     * @param rpcInvoker             - use to process the calls on SS.
      */
 
     public static void registerProtocolEngine(RPC.RpcKind rpcKind,
@@ -314,20 +319,25 @@ public abstract class Server {
         return protocol;
     }
 
-    /** Returns the server instance called under or null.  May be called under
+    /**
+     * Returns the server instance called under or null.  May be called under
      * {@link #call(Writable, long)} implementations, and under {@link Writable}
      * methods of paramters and return values.  Permits applications to access
-     * the server context.*/
+     * the server context.
+     */
     public static Server get() {
         return SERVER.get();
     }
 
-    /** This is set to Call object before Handler invokes an RPC and reset
+    /**
+     * This is set to Call object before Handler invokes an RPC and reset
      * after the call returns.
      */
     private static final ThreadLocal<Call> CurCall = new ThreadLocal<Call>();
 
-    /** Get the current call */
+    /**
+     * Get the current call
+     */
     @VisibleForTesting
     public static ThreadLocal<Call> getCurCall() {
         return CurCall;
@@ -347,15 +357,16 @@ public abstract class Server {
 
     /**
      * @return The current active RPC call's retry count. -1 indicates the retry
-     *         cache is not supported in the client side.
+     * cache is not supported in the client side.
      */
     public static int getCallRetryCount() {
         Call call = CurCall.get();
         return call != null ? call.retryCount : RpcConstants.INVALID_RETRY_COUNT;
     }
 
-    /** Returns the remote side ip address when invoked inside an RPC
-     *  Returns null incase of an error.
+    /**
+     * Returns the remote side ip address when invoked inside an RPC
+     * Returns null incase of an error.
      */
     public static InetAddress getRemoteIp() {
         Call call = CurCall.get();
@@ -370,17 +381,20 @@ public abstract class Server {
         return call != null ? call.clientId : RpcConstants.DUMMY_CLIENT_ID;
     }
 
-    /** Returns remote address as a string when invoked inside an RPC.
-     *  Returns null in case of an error.
+    /**
+     * Returns remote address as a string when invoked inside an RPC.
+     * Returns null in case of an error.
      */
     public static String getRemoteAddress() {
         InetAddress addr = getRemoteIp();
         return (addr == null) ? null : addr.getHostAddress();
     }
 
-    /** Returns the RPC remote user when invoked inside an RPC.  Note this
-     *  may be different than the current user if called within another doAs
-     *  @return connection's UGI or null if not an RPC
+    /**
+     * Returns the RPC remote user when invoked inside an RPC.  Note this
+     * may be different than the current user if called within another doAs
+     *
+     * @return connection's UGI or null if not an RPC
      */
     public static UserGroupInformation getRemoteUser() {
         Call call = CurCall.get();
@@ -392,7 +406,8 @@ public abstract class Server {
         return (call != null) ? call.getProtocol() : null;
     }
 
-    /** Return true if the invocation was through an RPC.
+    /**
+     * Return true if the invocation was through an RPC.
      */
     public static boolean isRpcInvocation() {
         return CurCall.get() != null;
@@ -448,6 +463,7 @@ public abstract class Server {
 
     /**
      * Checks if LogSlowRPC is set true.
+     *
      * @return true, if LogSlowRPC is set true, false, otherwise.
      */
     protected boolean isLogSlowRPC() {
@@ -456,6 +472,7 @@ public abstract class Server {
 
     /**
      * Sets slow RPC flag.
+     *
      * @param logSlowRPCFlag
      */
     @VisibleForTesting
@@ -467,15 +484,15 @@ public abstract class Server {
     /**
      * Logs a Slow RPC Request.
      *
-     * @param methodName - RPC Request method name
+     * @param methodName     - RPC Request method name
      * @param processingTime - Processing Time.
-     *
-     * if this request took too much time relative to other requests
-     * we consider that as a slow RPC. 3 is a magic number that comes
-     * from 3 sigma deviation. A very simple explanation can be found
-     * by searching for 68-95-99.7 rule. We flag an RPC as slow RPC
-     * if and only if it falls above 99.7% of requests. We start this logic
-     * only once we have enough sample size.
+     *                       <p>
+     *                       if this request took too much time relative to other requests
+     *                       we consider that as a slow RPC. 3 is a magic number that comes
+     *                       from 3 sigma deviation. A very simple explanation can be found
+     *                       by searching for 68-95-99.7 rule. We flag an RPC as slow RPC
+     *                       if and only if it falls above 99.7% of requests. We start this logic
+     *                       only once we have enough sample size.
      */
     void logSlowRpcCalls(String methodName, int processingTime) {
         final int deviation = 3;
@@ -522,12 +539,13 @@ public abstract class Server {
     /**
      * A convenience method to bind to a given address and report
      * better exceptions if the address is not a valid host.
-     * @param socket the socket to bind
+     *
+     * @param socket  the socket to bind
      * @param address the address to bind to
      * @param backlog the number of connections allowed in the queue
-     * @throws BindException if the address can't be bound
+     * @throws BindException        if the address can't be bound
      * @throws UnknownHostException if the address isn't a valid host name
-     * @throws IOException other random errors from bind
+     * @throws IOException          other random errors from bind
      */
     public static void bind(ServerSocket socket, InetSocketAddress address,
                             int backlog) throws IOException {
@@ -568,6 +586,7 @@ public abstract class Server {
 
     /**
      * Returns a handle to the rpcMetrics (required in tests)
+     *
      * @return rpc metrics
      */
     @VisibleForTesting
@@ -609,6 +628,7 @@ public abstract class Server {
 
     /**
      * Returns a handle to the serviceAuthorizationManager (required in tests)
+     *
      * @return instance of ServiceAuthorizationManager for this server
      */
     @InterfaceAudience.LimitedPrivate({"HDFS", "MapReduce"})
@@ -673,7 +693,9 @@ public abstract class Server {
                 CommonConfigurationKeys.IPC_BACKOFF_ENABLE_DEFAULT);
     }
 
-    /** A generic call queued for handling. */
+    /**
+     * A generic call queued for handling.
+     */
     public static class Call implements Schedulable,
             PrivilegedExceptionAction<Void> {
         final int callId;            // the client's call id
@@ -816,7 +838,9 @@ public abstract class Server {
         }
     }
 
-    /** A RPC extended call queued for handling. */
+    /**
+     * A RPC extended call queued for handling.
+     */
     private class RpcCall extends Call {
         final Connection connection;  // connection to client
         final Writable rpcRequest;    // Serialized Rpc request from client
@@ -1018,7 +1042,9 @@ public abstract class Server {
         }
     }
 
-    /** Listens on the socket. Creates jobs for the handler threads*/
+    /**
+     * Listens on the socket. Creates jobs for the handler threads
+     */
     private class Listener extends Thread {
 
         private ServerSocketChannel acceptChannel = null; //the accept channel
@@ -1626,7 +1652,9 @@ public abstract class Server {
         }
     }
 
-    /** Reads calls from a connection and queues them for handling. */
+    /**
+     * Reads calls from a connection and queues them for handling.
+     */
     public class Connection {
         private boolean connectionHeaderRead = false; // connection  header is read?
         private boolean connectionContextRead = false; //if connection context that
@@ -2131,6 +2159,7 @@ public abstract class Server {
          * is incompatible with the server. This can contain special-case
          * code to speak enough of past IPC protocols to pass back
          * an exception to the caller.
+         *
          * @param clientVersion the version the caller is using
          * @throws IOException
          */
@@ -2172,10 +2201,12 @@ public abstract class Server {
             sendResponse(fakeCall);
         }
 
-        /** Reads the connection context following the connection header
+        /**
+         * Reads the connection context following the connection header
+         *
          * @param buffer - DataInputStream from which to read the header
          * @throws RpcServerException - if the header cannot be
-         *         deserialized, or the user is not authorized
+         *                            deserialized, or the user is not authorized
          */
         private void processConnectionContext(RpcWritable.Buffer buffer)
                 throws RpcServerException {
@@ -2228,8 +2259,9 @@ public abstract class Server {
         /**
          * Process a wrapped RPC Request - unwrap the SASL packet and process
          * each embedded RPC request
+         *
          * @param inBuf - SASL wrapped request of one or more RPCs
-         * @throws IOException - SASL packet cannot be unwrapped
+         * @throws IOException          - SASL packet cannot be unwrapped
          * @throws InterruptedException
          */
         private void unwrapPacketAndProcessRpcs(byte[] inBuf)
@@ -2272,18 +2304,18 @@ public abstract class Server {
 
         /**
          * Process one RPC Request from buffer read from socket stream
-         *  - decode rpc in a rpc-Call
-         *  - handle out-of-band RPC requests such as the initial connectionContext
-         *  - A successfully decoded RpcCall will be deposited in RPC-Q and
-         *    its response will be sent later when the request is processed.
-         *
+         * - decode rpc in a rpc-Call
+         * - handle out-of-band RPC requests such as the initial connectionContext
+         * - A successfully decoded RpcCall will be deposited in RPC-Q and
+         * its response will be sent later when the request is processed.
+         * <p>
          * Prior to this call the connectionHeader ("hrpc...") has been handled and
          * if SASL then SASL has been established and the buf we are passed
          * has been unwrapped from SASL.
          *
          * @param bb - contains the RPC request header and the rpc request
-         * @throws IOException - internal error that should not be returned to
-         *         client, typically failure to respond to client
+         * @throws IOException          - internal error that should not be returned to
+         *                              client, typically failure to respond to client
          * @throws InterruptedException
          */
         private void processOneRpc(ByteBuffer bb)
@@ -2333,6 +2365,7 @@ public abstract class Server {
 
         /**
          * Verify RPC header is valid
+         *
          * @param header - RPC request header
          * @throws RpcServerException - header contains invalid values
          */
@@ -2363,11 +2396,12 @@ public abstract class Server {
         /**
          * Process an RPC Request - the connection headers and context must
          * have been already read
+         *
          * @param header - RPC request header
          * @param buffer - stream to request payload
-         * @throws RpcServerException - generally due to fatal rpc layer issues
-         *   such as invalid header or deserialization error.  The call queue
-         *   may also throw a fatal or non-fatal exception on overflow.
+         * @throws RpcServerException   - generally due to fatal rpc layer issues
+         *                              such as invalid header or deserialization error.  The call queue
+         *                              may also throw a fatal or non-fatal exception on overflow.
          * @throws InterruptedException
          */
         private void processRpcRequest(RpcRequestHeaderProto header,
@@ -2443,12 +2477,13 @@ public abstract class Server {
         /**
          * Establish RPC connection setup by negotiating SASL if required, then
          * reading and authorizing the connection header
+         *
          * @param header - RPC header
          * @param buffer - stream to request payload
-         * @throws RpcServerException - setup failed due to SASL
-         *         negotiation failure, premature or invalid connection context,
-         *         or other state errors
-         * @throws IOException - failed to send a response back to the client
+         * @throws RpcServerException   - setup failed due to SASL
+         *                              negotiation failure, premature or invalid connection context,
+         *                              or other state errors
+         * @throws IOException          - failed to send a response back to the client
          * @throws InterruptedException
          */
         private void processRpcOutOfBandRequest(RpcRequestHeaderProto header,
@@ -2483,6 +2518,7 @@ public abstract class Server {
 
         /**
          * Authorize proxy users to access this server
+         *
          * @throws RpcServerException - user is not allowed to proxy
          */
         private void authorizeConnection() throws RpcServerException {
@@ -2512,8 +2548,9 @@ public abstract class Server {
 
         /**
          * Decode the a protobuf from the given input stream
+         *
          * @param message - Representation of the type of message
-         * @param buffer - a buffer to read the protobuf
+         * @param buffer  - a buffer to read the protobuf
          * @return Message - decoded protobuf
          * @throws RpcServerException - deserialization failed
          */
@@ -2539,6 +2576,7 @@ public abstract class Server {
 
         /**
          * Get service class for connection
+         *
          * @return the serviceClass
          */
         public int getServiceClass() {
@@ -2547,6 +2585,7 @@ public abstract class Server {
 
         /**
          * Set service class for connection
+         *
          * @param serviceClass the serviceClass to set
          */
         public void setServiceClass(int serviceClass) {
@@ -2597,7 +2636,9 @@ public abstract class Server {
         }
     }
 
-    /** Handles queued calls . */
+    /**
+     * Handles queued calls .
+     */
     private class Handler extends Thread {
         public Handler(int instanceNumber) {
             this.setDaemon(true);
@@ -2696,7 +2737,7 @@ public abstract class Server {
      * the number of handler threads that will be used to process calls.
      * If queueSizePerHandler or numReaders are not -1 they will be used instead of parameters
      * from configuration. Otherwise the configuration will be picked up.
-     *
+     * <p>
      * If rpcRequestClass is null then the rpcRequestClass must have been
      * registered via {@link #registerProtocolEngine(RPC.RpcKind, Class,
      * RPC.RpcInvoker)}.
@@ -2836,11 +2877,11 @@ public abstract class Server {
     /**
      * Setup response for the IPC Call.
      *
-     * @param call {@link Call} to which we are setting up the response
-     * @param status of the IPC call
-     * @param rv return value for the IPC Call, if the call was successful
+     * @param call       {@link Call} to which we are setting up the response
+     * @param status     of the IPC call
+     * @param rv         return value for the IPC Call, if the call was successful
      * @param errorClass error class, if the the call failed
-     * @param error error message, if the call failed
+     * @param error      error message, if the call failed
      * @throws IOException
      */
     private void setupResponse(
@@ -2953,11 +2994,11 @@ public abstract class Server {
      * The response is serialized using the previous protocol's response
      * layout.
      *
-     * @param response buffer to serialize the response into
-     * @param call {@link Call} to which we are setting up the response
-     * @param rv return value for the IPC Call, if the call was successful
+     * @param response   buffer to serialize the response into
+     * @param call       {@link Call} to which we are setting up the response
+     * @param rv         return value for the IPC Call, if the call was successful
      * @param errorClass error class, if the the call failed
-     * @param error error message, if the call failed
+     * @param error      error message, if the call failed
      * @throws IOException
      */
     private void setupResponseOldVersionFatal(ByteArrayOutputStream response,
@@ -3002,7 +3043,9 @@ public abstract class Server {
         return conf;
     }
 
-    /** Sets the socket buffer size used for responding to RPCs */
+    /**
+     * Sets the socket buffer size used for responding to RPCs
+     */
     public void setSocketSendBufSize(int size) {
         this.socketSendBufferSize = size;
     }
@@ -3011,7 +3054,9 @@ public abstract class Server {
         this.tracer = t;
     }
 
-    /** Starts the service.  Must be called before any calls will be handled. */
+    /**
+     * Starts the service.  Must be called before any calls will be handled.
+     */
     public synchronized void start() {
         responder.start();
         listener.start();
@@ -3023,7 +3068,9 @@ public abstract class Server {
         }
     }
 
-    /** Stops the service.  No new calls will be handled after this is called. */
+    /**
+     * Stops the service.  No new calls will be handled after this is called.
+     */
     public synchronized void stop() {
         LOG.info("Stopping server on " + port);
         running = false;
@@ -3042,9 +3089,10 @@ public abstract class Server {
         this.rpcDetailedMetrics.shutdown();
     }
 
-    /** Wait for the server to be stopped.
+    /**
+     * Wait for the server to be stopped.
      * Does not wait for all subthreads to finish.
-     *  See {@link #stop()}.
+     * See {@link #stop()}.
      */
     public synchronized void join() throws InterruptedException {
         while (running) {
@@ -3054,6 +3102,7 @@ public abstract class Server {
 
     /**
      * Return the socket (ip+port) on which the RPC server is listening to.
+     *
      * @return the socket (ip+port) on which the RPC server is listening to.
      */
     public synchronized InetSocketAddress getListenerAddress() {
@@ -3062,6 +3111,7 @@ public abstract class Server {
 
     /**
      * Called for each call.
+     *
      * @deprecated Use  {@link Server#call(RPC.RpcKind, String, Writable, long)}
      * instead.
      */
@@ -3070,16 +3120,18 @@ public abstract class Server {
         return call(RPC.RpcKind.RPC_BUILTIN, null, param, receiveTime);
     }
 
-    /** Called for each call. */
+    /**
+     * Called for each call.
+     */
     public abstract Writable call(RPC.RpcKind rpcKind, String protocol,
                                   Writable param, long receiveTime) throws Exception;
 
     /**
      * Authorize the incoming client connection.
      *
-     * @param user client user
+     * @param user         client user
      * @param protocolName - the protocol
-     * @param addr InetAddress of incoming connection
+     * @param addr         InetAddress of incoming connection
      * @throws AuthorizationException when the client isn't authorized to talk the protocol
      */
     private void authorize(UserGroupInformation user, String protocolName,
@@ -3103,6 +3155,7 @@ public abstract class Server {
      * Get the port on which the IPC Server is listening for incoming connections.
      * This could be an ephemeral port too, in which case we return the real
      * port on which the Server has bound.
+     *
      * @return port on which IPC Server is listening
      */
     public int getPort() {
@@ -3111,6 +3164,7 @@ public abstract class Server {
 
     /**
      * The number of open RPC conections
+     *
      * @return the number of open rpc connections
      */
     public int getNumOpenConnections() {
@@ -3133,6 +3187,7 @@ public abstract class Server {
     /**
      * The number of RPC connections dropped due to
      * too many connections.
+     *
      * @return the number of dropped rpc connections
      */
     public long getNumDroppedConnections() {
@@ -3142,6 +3197,7 @@ public abstract class Server {
 
     /**
      * The number of rpc calls in the queue.
+     *
      * @return The number of rpc calls in the queue.
      */
     public int getCallQueueLen() {
@@ -3158,6 +3214,7 @@ public abstract class Server {
 
     /**
      * The maximum size of the rpc call queue of this server.
+     *
      * @return The maximum size of the rpc call queue.
      */
     public int getMaxQueueSize() {
@@ -3166,6 +3223,7 @@ public abstract class Server {
 
     /**
      * The number of reader threads for this server.
+     *
      * @return The number of reader threads.
      */
     public int getNumReaders() {
