@@ -141,6 +141,37 @@ public abstract class Server {
     private ExceptionsHandler exceptionsHandler = new ExceptionsHandler();
     private Tracer tracer;
 
+    public static class YML {
+        public static void debug(Object... msg) {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = st[2].getMethodName();
+            LOG.debug(String.format("YML-Mark [%s@%d] %s", fn, Thread.currentThread().getId(), join(msg)));
+        }
+
+        private static String join(Object... msg) {
+            if (msg.length == 0) {
+                return "";
+            }
+            StringBuilder sb = new StringBuilder();
+            for (Object o : msg) {
+                sb.append(o.toString());
+                sb.append(", ");
+            }
+            String s = sb.toString();
+            return s.substring(s.length() - 2);
+        }
+
+        public static void enter() {
+            debug("Enter");
+        }
+
+        public static void leave() {
+            debug("Leave");
+        }
+    }
+
     /**
      * Add exception classes for which server won't log stack traces.
      *
@@ -1790,11 +1821,14 @@ public abstract class Server {
 
         private void saslReadAndProcess(RpcWritable.Buffer buffer) throws
                 RpcServerException, IOException, InterruptedException {
+            YML.enter();
             final RpcSaslProto saslMessage =
                     getMessage(RpcSaslProto.getDefaultInstance(), buffer);
             switch (saslMessage.getState()) {
                 case WRAP: {
+                    YML.debug(1);
                     if (!saslContextEstablished || !useWrap) {
+                        YML.debug(2);
                         throw new FatalRpcServerException(
                                 RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                                 new SaslException("Server is not wrapping data"));
@@ -1804,8 +1838,10 @@ public abstract class Server {
                     break;
                 }
                 default:
+                    YML.debug(3);
                     saslProcess(saslMessage);
             }
+            YML.leave();
         }
 
         private Throwable getCauseForInvalidToken(IOException e) {
@@ -1833,7 +1869,9 @@ public abstract class Server {
 
         private void saslProcess(RpcSaslProto saslMessage)
                 throws RpcServerException, IOException, InterruptedException {
+            YML.enter();
             if (saslContextEstablished) {
+                YML.debug(1);
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                         new SaslException("Negotiation is already complete"));
@@ -1843,6 +1881,7 @@ public abstract class Server {
                 try {
                     saslResponse = processSaslMessage(saslMessage);
                 } catch (IOException e) {
+                    YML.debug(2);
                     rpcMetrics.incrAuthenticationFailures();
                     if (LOG.isDebugEnabled()) {
                         LOG.debug(StringUtils.stringifyException(e));
@@ -1856,6 +1895,7 @@ public abstract class Server {
                 }
 
                 if (saslServer != null && saslServer.isComplete()) {
+                    YML.debug(3);
                     if (LOG.isDebugEnabled()) {
                         LOG.debug("SASL server context established. Negotiated QoP is "
                                 + saslServer.getNegotiatedProperty(Sasl.QOP));
@@ -1869,34 +1909,43 @@ public abstract class Server {
                     saslContextEstablished = true;
                 }
             } catch (RpcServerException rse) { // don't re-wrap
+                YML.debug(4);
                 throw rse;
             } catch (IOException ioe) {
+                YML.debug(5);
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_UNAUTHORIZED, ioe);
             }
             // send back response if any, may throw IOException
             if (saslResponse != null) {
+                YML.debug(6);
                 doSaslReply(saslResponse);
             }
             // do NOT enable wrapping until the last auth response is sent
             if (saslContextEstablished) {
+                YML.debug(7);
                 String qop = (String) saslServer.getNegotiatedProperty(Sasl.QOP);
                 // SASL wrapping is only used if the connection has a QOP, and
                 // the value is not auth.  ex. auth-int & auth-priv
                 useWrap = (qop != null && !"auth".equalsIgnoreCase(qop));
                 if (!useWrap) {
+                    YML.debug(8);
                     disposeSasl();
                 }
             }
+            YML.leave();
         }
 
         private RpcSaslProto processSaslMessage(RpcSaslProto saslMessage)
                 throws IOException, InterruptedException {
+            YML.enter();
             final RpcSaslProto saslResponse;
             final SaslState state = saslMessage.getState(); // required
             switch (state) {
                 case NEGOTIATE: {
+                    YML.debug(1);
                     if (sentNegotiate) {
+                        YML.debug(2);
                         throw new AccessControlException(
                                 "Client already attempted negotiation");
                     }
@@ -1904,18 +1953,23 @@ public abstract class Server {
                     // simple-only server negotiate response is success which client
                     // interprets as switch to simple
                     if (saslResponse.getState() == SaslState.SUCCESS) {
+                        YML.debug(3);
                         switchToSimple();
                     }
                     break;
                 }
                 case INITIATE: {
+                    YML.debug(4);
                     if (saslMessage.getAuthsCount() != 1) {
+                        YML.debug(5);
                         throw new SaslException("Client mechanism is malformed");
                     }
                     // verify the client requested an advertised authType
                     SaslAuth clientSaslAuth = saslMessage.getAuths(0);
                     if (!negotiateResponse.getAuthsList().contains(clientSaslAuth)) {
+                        YML.debug(6);
                         if (sentNegotiate) {
+                            YML.debug(7);
                             throw new AccessControlException(
                                     clientSaslAuth.getMethod() + " authentication is not enabled."
                                             + "  Available:" + enabledAuthMethods);
@@ -1927,24 +1981,29 @@ public abstract class Server {
                     // abort SASL for SIMPLE auth, server has already ensured that
                     // SIMPLE is a legit option above.  we will send no response
                     if (authMethod == AuthMethod.SIMPLE) {
+                        YML.debug(8);
                         switchToSimple();
                         saslResponse = null;
                         break;
                     }
                     // sasl server for tokens may already be instantiated
                     if (saslServer == null || authMethod != AuthMethod.TOKEN) {
+                        YML.debug(9);
                         saslServer = createSaslServer(authMethod);
                     }
                     saslResponse = processSaslToken(saslMessage);
                     break;
                 }
                 case RESPONSE: {
+                    YML.debug(10);
                     saslResponse = processSaslToken(saslMessage);
                     break;
                 }
                 default:
+                    YML.debug(11);
                     throw new SaslException("Client sent unsupported state " + state);
             }
+            YML.leave();
             return saslResponse;
         }
 
@@ -2210,8 +2269,10 @@ public abstract class Server {
          */
         private void processConnectionContext(RpcWritable.Buffer buffer)
                 throws RpcServerException {
+            YML.enter();
             // allow only one connection context during a session
             if (connectionContextRead) {
+                YML.debug(1);
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                         "Connection context already processed");
@@ -2222,8 +2283,10 @@ public abstract class Server {
 
             UserGroupInformation protocolUser = ProtoUtil.getUgi(connectionContext);
             if (authProtocol == AuthProtocol.NONE) {
+                YML.debug(2);
                 user = protocolUser;
             } else {
+                YML.debug(3);
                 // user is authenticated
                 user.setAuthenticationMethod(authMethod);
                 //Now we check if this is a proxy user case. If the protocol user is
@@ -2231,7 +2294,9 @@ public abstract class Server {
                 //this is not allowed if user authenticated with DIGEST.
                 if ((protocolUser != null)
                         && (!protocolUser.getUserName().equals(user.getUserName()))) {
+                    YML.debug(4);
                     if (authMethod == AuthMethod.TOKEN) {
+                        YML.debug(5);
                         // Not allowed to doAs if token authentication is used
                         throw new FatalRpcServerException(
                                 RpcErrorCodeProto.FATAL_UNAUTHORIZED,
@@ -2239,6 +2304,7 @@ public abstract class Server {
                                         + ") doesn't match what the client claims to be ("
                                         + protocolUser + ")"));
                     } else {
+                        YML.debug(6);
                         // Effective user can be different from authenticated user
                         // for simple auth or kerberos auth
                         // The user is the real user. Now we create a proxy user
@@ -2252,8 +2318,10 @@ public abstract class Server {
             // don't set until after authz because connection isn't established
             connectionContextRead = true;
             if (user != null) {
+                YML.debug(7);
                 connectionManager.incrUserConnections(user.getShortUserName());
             }
+            YML.leave();
         }
 
         /**
@@ -2266,6 +2334,7 @@ public abstract class Server {
          */
         private void unwrapPacketAndProcessRpcs(byte[] inBuf)
                 throws IOException, InterruptedException {
+            YML.enter();
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Have read input token of size " + inBuf.length
                         + " for processing by saslServer.unwrap()");
@@ -2297,9 +2366,11 @@ public abstract class Server {
                     unwrappedData.flip();
                     ByteBuffer requestData = unwrappedData;
                     unwrappedData = null; // null out in case processOneRpc throws.
+                    YML.debug(1);
                     processOneRpc(requestData);
                 }
             }
+            YML.leave();
         }
 
         /**
@@ -2323,7 +2394,7 @@ public abstract class Server {
             // exceptions that escape this method are fatal to the connection.
             // setupResponse will use the rpc status to determine if the connection
             // should be closed.
-            LOG.debug("[YML] Mark 01 " + Thread.currentThread().getId());
+            YML.enter();
             int callId = -1;
             int retry = RpcConstants.INVALID_RETRY_COUNT;
             try {
@@ -2333,29 +2404,28 @@ public abstract class Server {
                 callId = header.getCallId();
                 retry = header.getRetryCount();
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("[YML] Mark 02 " + Thread.currentThread().getId());
                     LOG.debug(" got #" + callId);
                 }
                 checkRpcHeaders(header);
 
                 if (callId < 0) { // callIds typically used during connection setup
-                    LOG.debug("[YML] Mark 03 " + Thread.currentThread().getId());
+                    YML.debug(1);
                     processRpcOutOfBandRequest(header, buffer);
                 } else if (!connectionContextRead) {
-                    LOG.debug("[YML] Mark 04 " + Thread.currentThread().getId());
+                    YML.debug(2);
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "Connection context not established");
                 } else {
-                    LOG.debug("[YML] Mark 05 " + Thread.currentThread().getId());
+                    YML.debug(3);
                     processRpcRequest(header, buffer);
                 }
             } catch (RpcServerException rse) {
-                LOG.debug("[YML] Mark 06 " + Thread.currentThread().getId());
+                YML.debug(4);
                 // inform client of error, but do not rethrow else non-fatal
                 // exceptions will close connection!
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("[YML] Mark 07 " + Thread.currentThread().getId());
+                    YML.debug(5);
                     LOG.debug(Thread.currentThread().getName() +
                             ": processOneRpc from client " + this +
                             " threw exception [" + rse + "]");
@@ -2367,9 +2437,9 @@ public abstract class Server {
                         rse.getRpcStatusProto(), rse.getRpcErrorCodeProto(), null,
                         t.getClass().getName(), t.getMessage());
                 sendResponse(call);
-                LOG.debug("[YML] Mark 08 " + Thread.currentThread().getId());
+                YML.debug(6);
             }
-            LOG.debug("[YML] Mark 09 " + Thread.currentThread().getId());
+            YML.leave();
         }
 
         /**
@@ -2416,11 +2486,11 @@ public abstract class Server {
         private void processRpcRequest(RpcRequestHeaderProto header,
                                        RpcWritable.Buffer buffer) throws RpcServerException,
                 InterruptedException {
+            YML.enter();
             Class<? extends Writable> rpcRequestClass =
                     getRpcRequestWrapper(header.getRpcKind());
-            LOG.debug("[YML] Mark 10 " + Thread.currentThread().getId());
             if (rpcRequestClass == null) {
-                LOG.debug("[YML] Mark 11 " + Thread.currentThread().getId());
+                YML.debug(1);
                 LOG.warn("Unknown rpc kind " + header.getRpcKind() +
                         " from client " + getHostAddress());
                 final String err = "Unknown rpc kind in rpc header" +
@@ -2432,10 +2502,10 @@ public abstract class Server {
             try { //Read the rpc request
                 rpcRequest = buffer.newInstance(rpcRequestClass, conf);
             } catch (RpcServerException rse) { // lets tests inject failures.
-                LOG.debug("[YML] Mark 12 " + Thread.currentThread().getId());
+                YML.debug(2);
                 throw rse;
             } catch (Throwable t) { // includes runtime exception from newInstance
-                LOG.debug("[YML] Mark 13 " + Thread.currentThread().getId());
+                YML.debug(3);
                 LOG.warn("Unable to read call parameters for client " +
                         getHostAddress() + "on connection protocol " +
                         this.protocolName + " for rpcKind " + header.getRpcKind(), t);
@@ -2445,11 +2515,11 @@ public abstract class Server {
             }
 
             TraceScope traceScope = null;
-            LOG.debug("[YML] Mark 14 " + Thread.currentThread().getId());
+            YML.debug(4);
             if (header.hasTraceInfo()) {
-                LOG.debug("[YML] Mark 15 " + Thread.currentThread().getId());
+                YML.debug(5);
                 if (tracer != null) {
-                    LOG.debug("[YML] Mark 16 " + Thread.currentThread().getId());
+                    YML.debug(6);
                     // If the incoming RPC included tracing info, always continue the
                     // trace
                     SpanId parentSpanId = new SpanId(
@@ -2464,7 +2534,7 @@ public abstract class Server {
 
             CallerContext callerContext = null;
             if (header.hasCallerContext()) {
-                LOG.debug("[YML] Mark 17 " + Thread.currentThread().getId());
+                YML.debug(7);
                 callerContext =
                         new CallerContext.Builder(header.getCallerContext().getContext())
                                 .setSignature(header.getCallerContext().getSignature()
@@ -2482,16 +2552,17 @@ public abstract class Server {
 
             try {
                 internalQueueCall(call);
-                LOG.debug("[YML] Mark 18 " + Thread.currentThread().getId());
+                YML.debug(8);
             } catch (RpcServerException rse) {
-                LOG.debug("[YML] Mark 19 " + Thread.currentThread().getId());
+                YML.debug(9);
                 throw rse;
             } catch (IOException ioe) {
-                LOG.debug("[YML] Mark 20 " + Thread.currentThread().getId());
+                YML.debug(10);
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.ERROR_RPC_SERVER, ioe);
             }
             incRpcCount();  // Increment the rpc count
+            YML.leave();
         }
 
         /**
@@ -2509,13 +2580,13 @@ public abstract class Server {
         private void processRpcOutOfBandRequest(RpcRequestHeaderProto header,
                                                 RpcWritable.Buffer buffer) throws RpcServerException,
                 IOException, InterruptedException {
+            YML.enter();
             final int callId = header.getCallId();
-            LOG.debug("[YML] Mark 21 " + Thread.currentThread().getId());
             if (callId == CONNECTION_CONTEXT_CALL_ID) {
-                LOG.debug("[YML] Mark 22 " + Thread.currentThread().getId());
+                YML.debug(1);
                 // SASL must be established prior to connection context
                 if (authProtocol == AuthProtocol.SASL && !saslContextEstablished) {
-                    LOG.debug("[YML] Mark 23 " + Thread.currentThread().getId());
+                    YML.debug(2);
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "Connection header sent during SASL negotiation");
@@ -2523,25 +2594,26 @@ public abstract class Server {
                 // read and authorize the user
                 processConnectionContext(buffer);
             } else if (callId == AuthProtocol.SASL.callId) {
-                LOG.debug("[YML] Mark 24 " + Thread.currentThread().getId());
+                YML.debug(3);
                 // if client was switched to simple, ignore first SASL message
                 if (authProtocol != AuthProtocol.SASL) {
-                    LOG.debug("[YML] Mark 25 " + Thread.currentThread().getId());
+                    YML.debug(4);
                     throw new FatalRpcServerException(
                             RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                             "SASL protocol not requested by client");
                 }
-                LOG.debug("[YML] Mark 26 " + Thread.currentThread().getId());
+                YML.debug(5);
                 saslReadAndProcess(buffer);
             } else if (callId == PING_CALL_ID) {
-                LOG.debug("[YML] Mark 27 " + Thread.currentThread().getId());
+                YML.debug(6);
                 LOG.debug("Received ping message");
             } else {
-                LOG.debug("[YML] Mark 28 " + Thread.currentThread().getId());
+                YML.debug(7);
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_INVALID_RPC_HEADER,
                         "Unknown out of band call #" + callId);
             }
+            YML.leave();
         }
 
         /**
