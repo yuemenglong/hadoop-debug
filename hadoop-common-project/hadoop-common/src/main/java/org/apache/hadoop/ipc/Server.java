@@ -147,7 +147,7 @@ public abstract class Server {
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
             String fn = st[2].getMethodName();
-            LOG.debug(String.format("YML [%s@%d] %s", fn, Thread.currentThread().getId(), join(msg)));
+            LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
         }
 
         private static String join(Object... msg) {
@@ -172,7 +172,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%s@%d] Enter %s", fn, Thread.currentThread().getId(), s));
+            LOG.debug(String.format("YML [%d@%s] Enter %s", Thread.currentThread().getId(), fn, s));
         }
 
         public static void leave(Object... o) {
@@ -184,7 +184,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%s@%d] Leave %s", fn, Thread.currentThread().getId(), s));
+            LOG.debug(String.format("YML [%d@%s] Leave %s", Thread.currentThread().getId(), fn, s));
         }
 
         public static void cont(Object... o) {
@@ -196,7 +196,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%s@%d] Continue %s", fn, Thread.currentThread().getId(), s));
+            LOG.debug(String.format("YML [%d@%s] Continue %s", Thread.currentThread().getId(), fn, s));
         }
     }
 
