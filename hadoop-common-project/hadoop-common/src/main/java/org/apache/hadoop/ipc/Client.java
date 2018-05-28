@@ -1022,12 +1022,6 @@ public class Client implements AutoCloseable {
             final ResponseBuffer buf = new ResponseBuffer();
             connectionContextHeader.writeDelimitedTo(buf);
             message.writeDelimitedTo(buf);
-            LOG.info(String.format("[YML] SendMessage: %s", message));
-            StringBuilder sb = new StringBuilder();
-            for (byte b : buf.toByteArray()) {
-                sb.append(String.format("%02X ", b));
-            }
-            LOG.info(String.format("[YML] Send: %s", sb.toString()));
             synchronized (ipcStreams.out) {
                 ipcStreams.sendRequest(buf.toByteArray());
             }
