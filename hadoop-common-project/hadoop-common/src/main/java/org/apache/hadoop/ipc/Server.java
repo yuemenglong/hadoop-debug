@@ -160,15 +160,39 @@ public abstract class Server {
                 sb.append(", ");
             }
             String s = sb.toString();
-            return s.substring(s.length() - 2);
+            return s.substring(0, s.length() - 2);
         }
 
         public static void enter() {
-            debug("Enter");
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = st[2].getMethodName();
+            LOG.debug(String.format("YML-Mark [%s@%d] Enter", fn, Thread.currentThread().getId()));
         }
 
-        public static void leave() {
-            debug("Leave");
+        public static void leave(Object... o) {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = st[2].getMethodName();
+            String s = "";
+            if (o != null && o.length > 0) {
+                s = o[0].toString();
+            }
+            LOG.debug(String.format("YML-Mark [%s@%d] Leave %s", fn, Thread.currentThread().getId(), s));
+        }
+
+        public static void cont(Object... o) {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = st[2].getMethodName();
+            String s = "";
+            if (o != null && o.length > 0) {
+                s = o[0].toString();
+            }
+            LOG.debug(String.format("YML-Mark [%s@%d] Continue %s", fn, Thread.currentThread().getId(), s));
         }
     }
 
@@ -2085,21 +2109,31 @@ public abstract class Server {
         }
 
         public int readAndProcess() throws IOException, InterruptedException {
+            YML.enter();
             while (!shouldClose()) { // stop if a fatal response has been sent.
+                YML.debug(0);
                 int count = -1;
                 if (dataLengthBuffer.remaining() > 0) {
+                    YML.debug(1);
                     count = channelRead(channel, dataLengthBuffer);
-                    if (count < 0 || dataLengthBuffer.remaining() > 0)
+                    if (count < 0 || dataLengthBuffer.remaining() > 0) {
+                        YML.debug(2);
+                        YML.leave(1);
                         return count;
+                    }
                 }
 
                 if (!connectionHeaderRead) {
+                    YML.debug(3);
                     //Every connection is expected to send the header.
                     if (connectionHeaderBuf == null) {
+                        YML.debug(4);
                         connectionHeaderBuf = ByteBuffer.allocate(3);
                     }
                     count = channelRead(channel, connectionHeaderBuf);
                     if (count < 0 || connectionHeaderBuf.remaining() > 0) {
+                        YML.debug(5);
+                        YML.leave(2);
                         return count;
                     }
                     int version = connectionHeaderBuf.get(0);
@@ -2111,18 +2145,22 @@ public abstract class Server {
                     // with an HTTP GET - this is a common error, so we can
                     // send back a simple string indicating as much.
                     if (HTTP_GET_BYTES.equals(dataLengthBuffer)) {
+                        YML.debug(6);
                         setupHttpRequestOnIpcPortResponse();
+                        YML.leave(3);
                         return -1;
                     }
 
                     if (!RpcConstants.HEADER.equals(dataLengthBuffer)
                             || version != CURRENT_VERSION) {
+                        YML.debug(7);
                         //Warning is ok since this is not supposed to happen.
                         LOG.warn("Incorrect header or version mismatch from " +
                                 hostAddress + ":" + remotePort +
                                 " got version " + version +
                                 " expected version " + CURRENT_VERSION);
                         setupBadVersionResponse(version);
+                        YML.leave(4);
                         return -1;
                     }
 
@@ -2132,10 +2170,12 @@ public abstract class Server {
                     dataLengthBuffer.clear();
                     connectionHeaderBuf = null;
                     connectionHeaderRead = true;
+                    YML.cont(1);
                     continue;
                 }
 
                 if (data == null) {
+                    YML.debug(8);
                     dataLengthBuffer.flip();
                     dataLength = dataLengthBuffer.getInt();
                     checkDataLength(dataLength);
@@ -2145,6 +2185,7 @@ public abstract class Server {
                 count = channelRead(channel, data);
 
                 if (data.remaining() == 0) {
+                    YML.debug(9);
                     dataLengthBuffer.clear();
                     data.flip();
                     ByteBuffer requestData = data;
@@ -2152,11 +2193,14 @@ public abstract class Server {
                     boolean isHeaderRead = connectionContextRead;
                     processOneRpc(requestData);
                     if (!isHeaderRead) {
+                        YML.cont(2);
                         continue;
                     }
                 }
+                YML.leave(5);
                 return count;
             }
+            YML.leave(6);
             return -1;
         }
 
