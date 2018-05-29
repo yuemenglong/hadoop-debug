@@ -1325,9 +1325,11 @@ public abstract class Server {
         }
 
         void doRead(SelectionKey key) throws InterruptedException {
+            YML.enter();
             int count;
             Connection c = (Connection) key.attachment();
             if (c == null) {
+                YML.leave(1);
                 return;
             }
             c.setLastContact(Time.now());
@@ -1335,9 +1337,11 @@ public abstract class Server {
             try {
                 count = c.readAndProcess();
             } catch (InterruptedException ieo) {
+                YML.debug(1);
                 LOG.info(Thread.currentThread().getName() + ": readAndProcess caught InterruptedException", ieo);
                 throw ieo;
             } catch (Exception e) {
+                YML.debug(2);
                 // Any exceptions that reach here are fatal unexpected internal errors
                 // that could not be sent to the client.
                 LOG.info(Thread.currentThread().getName() +
@@ -1348,11 +1352,13 @@ public abstract class Server {
             // setupResponse will signal the connection should be closed when a
             // fatal response is sent.
             if (count < 0 || c.shouldClose()) {
+                YML.debug(3);
                 closeConnection(c);
                 c = null;
             } else {
                 c.setLastContact(Time.now());
             }
+            YML.leave();
         }
 
         synchronized void doStop() {
