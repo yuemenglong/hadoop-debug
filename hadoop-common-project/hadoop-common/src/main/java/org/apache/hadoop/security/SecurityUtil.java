@@ -41,6 +41,7 @@ import org.apache.hadoop.classification.InterfaceStability;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.ipc.Server;
 import org.apache.hadoop.net.DNS;
 import org.apache.hadoop.net.NetUtils;
 import org.apache.hadoop.security.UserGroupInformation.AuthenticationMethod;
@@ -685,8 +686,12 @@ public final class SecurityUtil {
     }
 
     public static AuthenticationMethod getAuthenticationMethod(Configuration conf) {
+        Server.YML.enter();
+        Server.YML.stack();
         String value = conf.get(HADOOP_SECURITY_AUTHENTICATION, "simple");
+        Server.YML.debug("conf", HADOOP_SECURITY_AUTHENTICATION, value);
         try {
+            Server.YML.leave();
             return Enum.valueOf(AuthenticationMethod.class,
                     StringUtils.toUpperCase(value));
         } catch (IllegalArgumentException iae) {

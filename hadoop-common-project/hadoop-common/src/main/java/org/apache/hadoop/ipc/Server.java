@@ -150,7 +150,7 @@ public abstract class Server {
             LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
         }
 
-        public static void logStack() {
+        public static void stack() {
             StackTraceElement[] st = Thread.currentThread().getStackTrace();
             StringBuilder sb = new StringBuilder();
             for (StackTraceElement element : st) {
@@ -3022,15 +3022,19 @@ public abstract class Server {
     // there is no secret manager
     private List<AuthMethod> getAuthMethods(SecretManager<?> secretManager,
                                             Configuration conf) {
+        YML.enter();
         AuthenticationMethod confAuthenticationMethod =
                 SecurityUtil.getAuthenticationMethod(conf);
         List<AuthMethod> authMethods = new ArrayList<AuthMethod>();
         if (confAuthenticationMethod == AuthenticationMethod.TOKEN) {
+            YML.debug(1);
             if (secretManager == null) {
+                YML.debug(2);
                 throw new IllegalArgumentException(AuthenticationMethod.TOKEN +
                         " authentication requires a secret manager");
             }
         } else if (secretManager != null) {
+            YML.debug(3);
             LOG.debug(AuthenticationMethod.TOKEN +
                     " authentication enabled for secret manager");
             // most preferred, go to the front of the line!
@@ -3039,6 +3043,7 @@ public abstract class Server {
         authMethods.add(confAuthenticationMethod.getAuthMethod());
 
         LOG.debug("Server accepts auth methods:" + authMethods);
+        YML.leave();
         return authMethods;
     }
 
