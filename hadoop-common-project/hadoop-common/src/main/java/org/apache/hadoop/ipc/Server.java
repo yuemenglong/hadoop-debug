@@ -150,6 +150,19 @@ public abstract class Server {
             LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
         }
 
+        public static void logStack() {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            StringBuilder sb = new StringBuilder();
+            for (StackTraceElement element : st) {
+                sb.append(element.toString());
+                sb.append("____");
+            }
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = st[2].getMethodName();
+            LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, sb.toString()));
+        }
+
         private static String join(Object... msg) {
             if (msg.length == 0) {
                 return "";
@@ -2600,13 +2613,14 @@ public abstract class Server {
                     header.getRetryCount(), rpcRequest,
                     ProtoUtil.convert(header.getRpcKind()),
                     header.getClientId().toByteArray(), traceScope, callerContext);
+            YML.debug("RpcCall", call.toString());
 
             // Save the priority level assignment by the scheduler
             call.setPriorityLevel(callQueue.getPriorityLevel(call));
 
             try {
-                internalQueueCall(call);
                 YML.debug(8);
+                internalQueueCall(call);
             } catch (RpcServerException rse) {
                 YML.debug(9);
                 throw rse;
@@ -2676,6 +2690,7 @@ public abstract class Server {
          * @throws RpcServerException - user is not allowed to proxy
          */
         private void authorizeConnection() throws RpcServerException {
+            YML.enter();
             try {
                 // If auth method is TOKEN, the token was obtained by the
                 // real user for the effective user, therefore not required to
@@ -2683,6 +2698,7 @@ public abstract class Server {
                 // authentication
                 if (user != null && user.getRealUser() != null
                         && (authMethod != AuthMethod.TOKEN)) {
+                    YML.debug(1);
                     ProxyUsers.authorize(user, this.getHostAddress());
                 }
                 authorize(user, protocolName, getHostInetAddress());
@@ -2691,6 +2707,7 @@ public abstract class Server {
                 }
                 rpcMetrics.incrAuthorizationSuccesses();
             } catch (AuthorizationException ae) {
+                YML.debug(2);
                 LOG.info("Connection from " + this
                         + " for protocol " + connectionContext.getProtocol()
                         + " is unauthorized for user " + user);
@@ -2698,6 +2715,7 @@ public abstract class Server {
                 throw new FatalRpcServerException(
                         RpcErrorCodeProto.FATAL_UNAUTHORIZED, ae);
             }
+            YML.leave();
         }
 
         /**
