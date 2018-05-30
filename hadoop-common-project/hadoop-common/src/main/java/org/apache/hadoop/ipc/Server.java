@@ -147,7 +147,7 @@ public abstract class Server {
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
             String fn = st[2].getMethodName();
-            LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
+            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
         }
 
         public static void stack() {
@@ -160,7 +160,7 @@ public abstract class Server {
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
             String fn = st[2].getMethodName();
-            LOG.debug(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, sb.toString()));
+            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, sb.toString()));
         }
 
         private static String join(Object... msg) {
@@ -185,7 +185,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%d@%s] Enter %s", Thread.currentThread().getId(), fn, s));
+            LOG.info(String.format("YML [%d@%s] Enter %s", Thread.currentThread().getId(), fn, s));
         }
 
         public static void leave(Object... o) {
@@ -197,7 +197,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%d@%s] Leave %s", Thread.currentThread().getId(), fn, s));
+            LOG.info(String.format("YML [%d@%s] Leave %s", Thread.currentThread().getId(), fn, s));
         }
 
         public static void cont(Object... o) {
@@ -209,7 +209,7 @@ public abstract class Server {
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
-            LOG.debug(String.format("YML [%d@%s] Continue %s", Thread.currentThread().getId(), fn, s));
+            LOG.info(String.format("YML [%d@%s] Continue %s", Thread.currentThread().getId(), fn, s));
         }
     }
 
