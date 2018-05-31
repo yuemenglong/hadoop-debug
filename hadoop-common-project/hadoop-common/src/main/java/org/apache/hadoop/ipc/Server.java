@@ -142,27 +142,6 @@ public abstract class Server {
     private Tracer tracer;
 
     public static class YML {
-        public static void debug(Object... msg) {
-            StackTraceElement[] st = Thread.currentThread().getStackTrace();
-            String tag = st[2].getFileName().replace(".java", "");
-            Logger LOG = LoggerFactory.getLogger(tag);
-            String fn = st[2].getMethodName();
-            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
-        }
-
-        public static void stack() {
-            StackTraceElement[] st = Thread.currentThread().getStackTrace();
-            StringBuilder sb = new StringBuilder();
-            for (StackTraceElement element : st) {
-                sb.append(element.toString());
-                sb.append("____");
-            }
-            String tag = st[2].getFileName().replace(".java", "");
-            Logger LOG = LoggerFactory.getLogger(tag);
-            String fn = st[2].getMethodName();
-            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, sb.toString()));
-        }
-
         private static String join(Object... msg) {
             if (msg.length == 0) {
                 return "";
@@ -176,11 +155,39 @@ public abstract class Server {
             return s.substring(0, s.length() - 2);
         }
 
+        private static String fn(StackTraceElement[] st) {
+            String[] items = st[2].getClassName().split("\\.");
+            String clazz = items[items.length - 1];
+            String m = st[2].getMethodName();
+            return String.format("%s.%s", clazz, m);
+        }
+
+        public static void debug(Object... msg) {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = fn(st);
+            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, join(msg)));
+        }
+
+        public static void stack() {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            StringBuilder sb = new StringBuilder();
+            for (StackTraceElement element : st) {
+                sb.append(element.toString());
+                sb.append("____");
+            }
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = fn(st);
+            LOG.info(String.format("YML [%d@%s] %s", Thread.currentThread().getId(), fn, sb.toString()));
+        }
+
         public static void enter(Object... o) {
             StackTraceElement[] st = Thread.currentThread().getStackTrace();
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
-            String fn = st[2].getMethodName();
+            String fn = fn(st);
             String s = "";
             if (o != null && o.length > 0) {
                 s = o[0].toString();
@@ -192,7 +199,7 @@ public abstract class Server {
             StackTraceElement[] st = Thread.currentThread().getStackTrace();
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
-            String fn = st[2].getMethodName();
+            String fn = fn(st);
             String s = "";
             if (o != null && o.length > 0) {
                 s = o[0].toString();
@@ -204,12 +211,24 @@ public abstract class Server {
             StackTraceElement[] st = Thread.currentThread().getStackTrace();
             String tag = st[2].getFileName().replace(".java", "");
             Logger LOG = LoggerFactory.getLogger(tag);
-            String fn = st[2].getMethodName();
+            String fn = fn(st);
             String s = "";
             if (o != null && o.length > 0) {
                 s = o[0].toString();
             }
             LOG.info(String.format("YML [%d@%s] Continue %s", Thread.currentThread().getId(), fn, s));
+        }
+
+        public static void whle(Object... o) {
+            StackTraceElement[] st = Thread.currentThread().getStackTrace();
+            String tag = st[2].getFileName().replace(".java", "");
+            Logger LOG = LoggerFactory.getLogger(tag);
+            String fn = fn(st);
+            String s = "";
+            if (o != null && o.length > 0) {
+                s = o[0].toString();
+            }
+            LOG.info(String.format("YML [%d@%s] While %s", Thread.currentThread().getId(), fn, s));
         }
     }
 
@@ -959,14 +978,17 @@ public abstract class Server {
 
         @Override
         public Void run() throws Exception {
+            YML.enter();
             if (!connection.channel.isOpen()) {
                 Server.LOG.info(Thread.currentThread().getName() + ": skipped " + this);
+                YML.leave(1);
                 return null;
             }
             Writable value = null;
             ResponseParams responseParams = new ResponseParams();
 
             try {
+                YML.debug("Server Class", Server.this.getClass());
                 value = call(
                         rpcKind, connection.protocolName, rpcRequest, timestamp);
             } catch (Throwable e) {
@@ -982,6 +1004,7 @@ public abstract class Server {
                     LOG.debug("Deferring response for callId: " + this.callId);
                 }
             }
+            YML.leave();
             return null;
         }
 
@@ -2794,8 +2817,11 @@ public abstract class Server {
     private void internalQueueCall(Call call)
             throws IOException, InterruptedException {
         try {
+            YML.enter();
             callQueue.put(call); // queue the call; maybe blocked here
+            YML.leave();
         } catch (CallQueueOverflowException cqe) {
+            YML.debug(1);
             // If rpc scheduler indicates back off based on performance degradation
             // such as response time or rpc queue is full, we will ask the client
             // to back off by throwing RetriableException. Whether the client will
@@ -2837,9 +2863,12 @@ public abstract class Server {
                     // always update the current call context
                     CallerContext.setCurrent(call.callerContext);
                     UserGroupInformation remoteUser = call.getRemoteUser();
+                    YML.debug("Call Class", call.getClass());
                     if (remoteUser != null) {
+                        YML.debug(1);
                         remoteUser.doAs(call);
                     } else {
+                        YML.debug(2);
                         call.run();
                     }
                 } catch (InterruptedException e) {
